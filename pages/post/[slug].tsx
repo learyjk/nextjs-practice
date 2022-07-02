@@ -4,6 +4,7 @@ import { sanityClient, urlFor } from "../../sanity";
 import { Post } from "../../typings";
 import PortableText from "react-portable-text";
 import { useForm, SubmitHandler } from "react-hook-form";
+import { useState } from "react";
 
 interface IFormInput {
   _id: string;
@@ -16,11 +17,29 @@ interface Props {
 }
 
 function Post({ post }: Props) {
+  console.log(post);
+  const [submitted, setSubmitted] = useState(false);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<IFormInput>();
+
+  const onSubmit: SubmitHandler<IFormInput> = (data) => {
+    fetch("/api/createComment", {
+      method: "POST",
+      body: JSON.stringify(data),
+    })
+      .then(() => {
+        console.log(data);
+        setSubmitted(true);
+      })
+      .catch((error) => {
+        console.log(error);
+        setSubmitted(false);
+      });
+  };
 
   return (
     <main>
@@ -49,37 +68,81 @@ function Post({ post }: Props) {
       </article>
       <hr></hr>
 
-      <form className="flex flex-col p-5 max-w-2xl mx-auto mb-10">
-        <input {...register("_id")} type="hidden" name="_id" value={post._id} />
+      {submitted ? (
+        <p className="max-w-2xl mx-auto py-5 text-white bg-yellow-500">
+          Thanks for submitting!
+        </p>
+      ) : (
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-col p-5 max-w-2xl mx-auto mb-10"
+        >
+          <input
+            {...register("_id")}
+            type="hidden"
+            name="_id"
+            value={post._id}
+          />
 
-        <label>
-          <span>Name</span>
+          <label>
+            <span>Name</span>
+            <input
+              {...register("name", { required: true })}
+              className="shadow border rounded py-2 px-3 mt-1 block form-input ring-yellow-500 outline-none focus:ring-1"
+              placeholder="John Appleseed"
+              type="text"
+            />
+          </label>
+          <label>
+            <span>Email</span>
+            <input
+              {...register("email", { required: true })}
+              className="shadow border rounded py-2 px-3 mt-1 block form-input ring-yellow-500 outline-none focus:ring-1"
+              placeholder="John Appleseed"
+              type="email"
+            />
+          </label>
+          <label className="block">
+            <span>Comment</span>
+            <textarea
+              {...register("comment", { required: true })}
+              className="shadow border rounded py-2 px-3 form-textarea block w-full ring-yellow-500 outline-none focus:ring-1"
+              placeholder="John Appleseed"
+              rows={8}
+            />
+          </label>
+
+          {/* errors when validation fails */}
+          <div className="flex flex-col p-5">
+            {errors.name && (
+              <span className="text-red-500">Name Field is Required</span>
+            )}
+            {errors.comment && (
+              <span className="text-red-500">Comment Field is Required</span>
+            )}
+            {errors.email && (
+              <span className="text-red-500">Email Field is Required</span>
+            )}
+          </div>
           <input
-            {...register("name", { required: true })}
-            className="shadow border rounded py-2 px-3 mt-1 block form-input ring-yellow-500 outline-none focus:ring-1"
-            placeholder="John Appleseed"
-            type="text"
+            className="shadow bg-yellow-500 hover:bg-yellow-400 focus:shadow-outline focus:outline-none text-white font-bold py-2 px-4 rounded cursor-pointer"
+            type="submit"
           />
-        </label>
-        <label>
-          <span>Email</span>
-          <input
-            {...register("email", { required: true })}
-            className="shadow border rounded py-2 px-3 mt-1 block form-input ring-yellow-500 outline-none focus:ring-1"
-            placeholder="John Appleseed"
-            type="text"
-          />
-        </label>
-        <label className="block">
-          <span>Comment</span>
-          <textarea
-            {...register("comment", { required: true })}
-            className="shadow border rounded py-2 px-3 form-textarea block w-full ring-yellow-500 outline-none focus:ring-1"
-            placeholder="John Appleseed"
-            rows={8}
-          />
-        </label>
-      </form>
+        </form>
+      )}
+
+      {/* Comments */}
+      <div>
+        <h3>Comments</h3>
+        <hr />
+        {post.comments.map((comment) => (
+          <div key={comment._id}>
+            <p>
+              {comment.name}:{comment.comment}
+            </p>
+          </div>
+        ))}
+      </div>
     </main>
   );
 }
@@ -117,6 +180,11 @@ export const getStaticProps: GetStaticProps = async ({ params }) => {
       name,
       image
     },
+    'comments': *[
+      _type == "comment" &&
+      post._ref == ^._id &&
+      approved == true
+    ],
     description,
     mainImage,
     slug,
